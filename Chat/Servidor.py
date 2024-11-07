@@ -1,48 +1,45 @@
-import threading
-import socket
+from socket import socket, AF_INET, SOCK_STREAM
+from threading import Thread
+import sys
 
-clients = []
-
-def main():
-    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    try:
-        server.bind(('127.0.0.1', 8000))
-        server.listen()
-        print('Servidor iniciado e aguardando conexões na porta 7777...')
-    except:
-        return print('\nNão foi possível iniciar o servidor!\n')
-
-    while True:
-        client, addr = server.accept()
-        print(f'Nova conexão de {addr}')
-        clients.append(client)
-
-        thread = threading.Thread(target=messagesTreatment, args=[client])
-        thread.start()
-
-def messagesTreatment(client):
+def receber_mensagens(cliente_socket, endereco_cliente):
     while True:
         try:
-            msg = client.recv(2048)
-            if msg:
-                print(f'Mensagem recebida: {msg.decode("utf-8")}')
-                broadcast(msg, client)
+
+            mensagem = cliente_socket.recv(1500).decode()
+            
+            sys.stdout.write('\r' + ' ' * 80 + '\r')  # Apaga a linha atual
+            print(f'Cliente ({endereco_cliente}): {mensagem}')
+            
+            # Exibe o prompt de entrada de novo para o servidor
+            sys.stdout.write("Você (Servidor): ")
+            sys.stdout.flush()
+
         except:
-            print('Erro ao receber mensagem. Cliente será removido.')
-            deleteClient(client)
+
+            sys.stdout.write('\r' + ' ' * 80 + '\r')  # Apaga a linha atual
+            print(f'Conexão com o cliente {endereco_cliente} foi encerrada.')
+            cliente_socket.close()
             break
 
-def broadcast(msg, client):
-    for clientItem in clients:
-        if clientItem != client:
-            try:
-                clientItem.send(msg)
-            except:
-                deleteClient(clientItem)
+def enviar_mensagens(cliente_socket):
+    while True:
+        mensagem = input("Você (Servidor): ")
+        cliente_socket.send(mensagem.encode())
 
-def deleteClient(client):
-    if client in clients:
-        clients.remove(client)
-        print(f'Cliente removido: {client}')
+def conexao_cliente(cliente_socket, endereco_cliente):
+    print(f'Conexão estabelecida com {endereco_cliente}')
+    Thread(target=receber_mensagens, args=(cliente_socket, endereco_cliente)).start()
+    Thread(target=enviar_mensagens, args=(cliente_socket,)).start()
 
-main()
+# Configura o socket do servidor
+server_socket = socket(AF_INET, SOCK_STREAM)
+server_socket.bind(('127.0.0.1', 8000))
+server_socket.listen()
+
+print('Aguardando novas conexões na porta 8000')
+
+# Aceita conexões de clientes
+while True:
+    cliente_socket, endereco_cliente = server_socket.accept()
+    Thread(target=conexao_cliente, args=(cliente_socket, endereco_cliente)).start()

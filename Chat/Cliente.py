@@ -1,49 +1,36 @@
-import threading
-import socket
+from socket import socket, AF_INET, SOCK_STREAM
+from threading import Thread
+import sys
 
-def main():
-    client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
-    try:
-        client.connect(('127.0.0.1', 8000))
-        print('Conectado ao servidor na porta 7777')
-    except Exception as e:
-        print('\nErro ao conectar ao servidor:', e)
-        return  # Pare o código caso a conexão falhe
-
-    username = input('Usuário> ')
-    print('\nConectado como', username)
-
-    # Inicie as threads de envio e recebimento
-    thread1 = threading.Thread(target=receiveMessages, args=[client])
-    thread2 = threading.Thread(target=sendMessages, args=[client, username])
-
-    thread1.start()
-    thread2.start()
-
-def receiveMessages(client):
+# Função para receber mensagens do servidor
+def receber_mensagens(s):
     while True:
         try:
-            msg = client.recv(2048).decode('utf-8')
-            if msg:
-                print(msg)
-            else:
-                print("Conexão fechada pelo servidor.")
-                client.close()
-                break
-        except Exception as e:
-            print('\nErro ao receber mensagens:', e)
-            client.close()
+            mensagem = s.recv(1500).decode()
+            
+            # Limpa a linha de entrada atual do servidor
+            sys.stdout.write('\r' + ' ' * 80 + '\r')  # Apaga a linha atual
+            print(f'Servidor: {mensagem}')
+            
+            # Exibe o prompt de entrada de novo para o servidor
+            sys.stdout.write("Você (Cliente): ")
+            sys.stdout.flush()
+        except:
+            print('Conexão com o servidor foi encerrada.')
+            s.close()
             break
 
-def sendMessages(client, username):
+# Função para enviar mensagens ao servidor
+def enviar_mensagens(s):
     while True:
-        try:
-            msg = input()
-            client.send(f'<{username}> {msg}'.encode('utf-8'))
-        except Exception as e:
-            print('Erro ao enviar mensagem:', e)
-            client.close()
-            break
+        mensagem = input("Você (Cliente): ")
+        s.send(f'{mensagem}'.encode())
 
-main()
+# Configura o socket do cliente
+s = socket(AF_INET, SOCK_STREAM)
+s.connect(('127.0.0.1', 8000))
+print('Conectado ao servidor na porta 8000')
+
+# Inicia as threads de envio e recepção de mensagens
+Thread(target=receber_mensagens, args=(s,)).start()
+Thread(target=enviar_mensagens, args=(s,)).start()
